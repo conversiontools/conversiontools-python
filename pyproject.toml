@@ -7,7 +7,7 @@ name = "conversiontools"
 version = "2.0.0"
 description = "Modern Python library to convert files using Conversion Tools API at https://conversiontools.io - supports both sync and async with full type hints"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Conversion Tools", email = "info@conversiontools.io"}
 ]
@@ -35,7 +35,6 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
