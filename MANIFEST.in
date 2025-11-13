@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include conversiontools/py.typed
+recursive-include conversiontools *.py
+recursive-include conversiontools/api *.py
+recursive-include conversiontools/models *.py
+recursive-include conversiontools/types *.py
+recursive-include conversiontools/utils *.py

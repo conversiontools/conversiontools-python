@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conversiontools"
+version = "2.0.0"
+description = "Modern Python library to convert files using Conversion Tools API at https://conversiontools.io - supports both sync and async with full type hints"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Conversion Tools", email = "info@conversiontools.io"}
+]
+maintainers = [
+    {name = "Conversion Tools", email = "info@conversiontools.io"}
+]
+keywords = [
+    "conversiontools",
+    "conversion",
+    "tools",
+    "convert",
+    "document",
+    "file",
+    "api",
+    "sdk",
+    "client",
+    "xml",
+    "json",
+    "excel",
+    "pdf",
+    "csv",
+    "async",
+    "httpx"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.24.0",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=24.3.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/conversiontools/conversiontools-python"
+Documentation = "https://conversiontools.io/api-documentation"
+Repository = "https://github.com/conversiontools/conversiontools-python"
+"Bug Tracker" = "https://github.com/conversiontools/conversiontools-python/issues"
+
+[tool.setuptools]
+packages = ["conversiontools", "conversiontools.api", "conversiontools.models", "conversiontools.types", "conversiontools.utils"]
+
+[tool.setuptools.package-data]
+conversiontools = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
