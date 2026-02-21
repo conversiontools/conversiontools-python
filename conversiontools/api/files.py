@@ -4,14 +4,25 @@ Files API - Upload, download, and manage files
 
 import os
 import re
+import httpx
 from pathlib import Path
-from typing import Optional, Union, BinaryIO
+from typing import Optional, Union, BinaryIO, Iterator, AsyncIterator, Callable
 from urllib.parse import quote
-from ..types.config import FileUploadResponse, FileInfo, FileUploadOptions
+from ..types.config import FileUploadResponse, FileInfo, FileUploadOptions, ProgressEvent
 from ..utils.errors import ValidationError
 from ..utils.validation import validate_file_id
 from ..utils.progress import create_progress_event
 from .http import HttpClient
+
+
+def _extract_filename(disposition: Optional[str]) -> Optional[str]:
+    """Extract filename from Content-Disposition header"""
+    if not disposition:
+        return None
+    matches = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', disposition)
+    if matches and matches.group(1):
+        return matches.group(1).strip('\'"')
+    return None
 
 
 class FilesAPI:
@@ -61,8 +72,6 @@ class FilesAPI:
             on_progress(create_progress_event(total, total))
 
         # Create multipart form data
-        import httpx
-
         files = {"file": (filename or "file", file_data)}
 
         # Upload file using httpx directly with multipart
@@ -125,8 +134,6 @@ class FilesAPI:
             on_progress(create_progress_event(total, total))
 
         # Create multipart form data
-        import httpx
-
         files = {"file": (filename or "file", file_data)}
 
         # Upload file using httpx directly with multipart
@@ -170,59 +177,146 @@ class FilesAPI:
         response = await self.http.get_async(f"/files/{quote(file_id)}", raw=True)
         return response.content
 
-    def download_to(self, file_id: str, output_path: Optional[str] = None) -> str:
+    def download_stream(self, file_id: str) -> Iterator[bytes]:
+        """Download file as a byte stream (sync)"""
+        validate_file_id(file_id)
+        url = f"{self.http.base_url}/files/{quote(file_id)}"
+        headers = {"Authorization": f"Bearer {self.http.api_token}"}
+        if self.http.user_agent:
+            headers["User-Agent"] = self.http.user_agent
+
+        with httpx.Client(timeout=self.http.timeout) as client:
+            with client.stream("GET", url, headers=headers) as response:
+                if not response.is_success:
+                    self.http._handle_error_response(response)
+                self.http._extract_rate_limits(response.headers)
+                yield from response.iter_bytes()
+
+    async def download_stream_async(self, file_id: str) -> AsyncIterator[bytes]:
+        """Download file as a byte stream (async)"""
+        validate_file_id(file_id)
+        url = f"{self.http.base_url}/files/{quote(file_id)}"
+        headers = {"Authorization": f"Bearer {self.http.api_token}"}
+        if self.http.user_agent:
+            headers["User-Agent"] = self.http.user_agent
+
+        async with httpx.AsyncClient(timeout=self.http.timeout) as client:
+            async with client.stream("GET", url, headers=headers) as response:
+                if not response.is_success:
+                    self.http._handle_error_response(response)
+                self.http._extract_rate_limits(response.headers)
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+
+    def download_to(
+        self,
+        file_id: str,
+        output_path: Optional[str] = None,
+        on_progress: Optional[Callable[[ProgressEvent], None]] = None,
+    ) -> str:
         """Download file to path (sync)"""
         validate_file_id(file_id)
+
+        if on_progress:
+            url = f"{self.http.base_url}/files/{quote(file_id)}"
+            headers = {"Authorization": f"Bearer {self.http.api_token}"}
+            if self.http.user_agent:
+                headers["User-Agent"] = self.http.user_agent
+
+            with httpx.Client(timeout=self.http.timeout) as client:
+                with client.stream("GET", url, headers=headers) as response:
+                    if not response.is_success:
+                        self.http._handle_error_response(response)
+                    self.http._extract_rate_limits(response.headers)
+
+                    filename = (
+                        output_path
+                        or _extract_filename(response.headers.get("content-disposition"))
+                        or "result"
+                    )
+                    output_dir = os.path.dirname(filename)
+                    if output_dir and not os.path.exists(output_dir):
+                        os.makedirs(output_dir, exist_ok=True)
+
+                    content_length = response.headers.get("content-length")
+                    total = int(content_length) if content_length else None
+                    loaded = 0
+
+                    with open(filename, "wb") as f:
+                        for chunk in response.iter_bytes():
+                            f.write(chunk)
+                            loaded += len(chunk)
+                            on_progress(create_progress_event(loaded, total))
+
+            return filename
+
         response = self.http.get(f"/files/{quote(file_id)}", raw=True)
 
-        # Determine output filename
-        filename = output_path
-        if not filename:
-            # Try to get filename from Content-Disposition header
-            disposition = response.headers.get("content-disposition")
-            if disposition:
-                matches = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', disposition)
-                if matches and matches.group(1):
-                    filename = matches.group(1).strip('\'"')
+        filename = output_path or _extract_filename(
+            response.headers.get("content-disposition")
+        ) or "result"
 
-            filename = filename or "result"
-
-        # Ensure directory exists
         output_dir = os.path.dirname(filename)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
-        # Write file
         with open(filename, "wb") as f:
             f.write(response.content)
 
         return filename
 
     async def download_to_async(
-        self, file_id: str, output_path: Optional[str] = None
+        self,
+        file_id: str,
+        output_path: Optional[str] = None,
+        on_progress: Optional[Callable[[ProgressEvent], None]] = None,
     ) -> str:
         """Download file to path (async)"""
         validate_file_id(file_id)
+
+        if on_progress:
+            url = f"{self.http.base_url}/files/{quote(file_id)}"
+            headers = {"Authorization": f"Bearer {self.http.api_token}"}
+            if self.http.user_agent:
+                headers["User-Agent"] = self.http.user_agent
+
+            async with httpx.AsyncClient(timeout=self.http.timeout) as client:
+                async with client.stream("GET", url, headers=headers) as response:
+                    if not response.is_success:
+                        self.http._handle_error_response(response)
+                    self.http._extract_rate_limits(response.headers)
+
+                    filename = (
+                        output_path
+                        or _extract_filename(response.headers.get("content-disposition"))
+                        or "result"
+                    )
+                    output_dir = os.path.dirname(filename)
+                    if output_dir and not os.path.exists(output_dir):
+                        os.makedirs(output_dir, exist_ok=True)
+
+                    content_length = response.headers.get("content-length")
+                    total = int(content_length) if content_length else None
+                    loaded = 0
+
+                    with open(filename, "wb") as f:
+                        async for chunk in response.aiter_bytes():
+                            f.write(chunk)
+                            loaded += len(chunk)
+                            on_progress(create_progress_event(loaded, total))
+
+            return filename
+
         response = await self.http.get_async(f"/files/{quote(file_id)}", raw=True)
 
-        # Determine output filename
-        filename = output_path
-        if not filename:
-            # Try to get filename from Content-Disposition header
-            disposition = response.headers.get("content-disposition")
-            if disposition:
-                matches = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', disposition)
-                if matches and matches.group(1):
-                    filename = matches.group(1).strip('\'"')
+        filename = output_path or _extract_filename(
+            response.headers.get("content-disposition")
+        ) or "result"
 
-            filename = filename or "result"
-
-        # Ensure directory exists
         output_dir = os.path.dirname(filename)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
-        # Write file
         with open(filename, "wb") as f:
             f.write(response.content)
 

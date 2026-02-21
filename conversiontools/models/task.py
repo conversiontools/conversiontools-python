@@ -2,8 +2,8 @@
 Task model - High-level interface for conversion tasks
 """
 
-from typing import Optional, Dict, Any, TYPE_CHECKING
-from ..types.config import TaskStatus, TaskStatusResponse, WaitOptions
+from typing import Optional, Dict, Any, Iterator, AsyncIterator, Callable, TYPE_CHECKING
+from ..types.config import TaskStatus, TaskStatusResponse, WaitOptions, ProgressEvent
 from ..utils.errors import ConversionError
 from ..utils.polling import poll_task_status_sync, poll_task_status_async
 
@@ -204,7 +204,32 @@ class Task:
 
         return await self._files_api.download_bytes_async(self._file_id)
 
-    def download_to(self, output_path: Optional[str] = None) -> str:
+    def download_stream(self) -> Iterator[bytes]:
+        """Download result file as a byte stream (sync)"""
+        if not self._file_id:
+            raise ConversionError(
+                "No result file available. Task may not be complete.",
+                self.id,
+            )
+
+        yield from self._files_api.download_stream(self._file_id)
+
+    async def download_stream_async(self) -> AsyncIterator[bytes]:
+        """Download result file as a byte stream (async)"""
+        if not self._file_id:
+            raise ConversionError(
+                "No result file available. Task may not be complete.",
+                self.id,
+            )
+
+        async for chunk in self._files_api.download_stream_async(self._file_id):
+            yield chunk
+
+    def download_to(
+        self,
+        output_path: Optional[str] = None,
+        on_progress: Optional[Callable[[ProgressEvent], None]] = None,
+    ) -> str:
         """Download result file to path (sync)"""
         if not self._file_id:
             raise ConversionError(
@@ -212,9 +237,13 @@ class Task:
                 self.id,
             )
 
-        return self._files_api.download_to(self._file_id, output_path)
+        return self._files_api.download_to(self._file_id, output_path, on_progress)
 
-    async def download_to_async(self, output_path: Optional[str] = None) -> str:
+    async def download_to_async(
+        self,
+        output_path: Optional[str] = None,
+        on_progress: Optional[Callable[[ProgressEvent], None]] = None,
+    ) -> str:
         """Download result file to path (async)"""
         if not self._file_id:
             raise ConversionError(
@@ -222,7 +251,7 @@ class Task:
                 self.id,
             )
 
-        return await self._files_api.download_to_async(self._file_id, output_path)
+        return await self._files_api.download_to_async(self._file_id, output_path, on_progress)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""

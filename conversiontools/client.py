@@ -44,6 +44,7 @@ class ConversionToolsClient:
             "max_polling_interval": config.get("max_polling_interval", 30000),
             "polling_backoff": config.get("polling_backoff", 1.5),
             "webhook_url": config.get("webhook_url"),
+            "user_agent": config.get("user_agent", f"conversiontools-python/{VERSION}"),
             "on_upload_progress": config.get("on_upload_progress"),
             "on_download_progress": config.get("on_download_progress"),
             "on_conversion_progress": config.get("on_conversion_progress"),
@@ -57,7 +58,7 @@ class ConversionToolsClient:
             retries=self.config["retries"],
             retry_delay=self.config["retry_delay"],
             retryable_statuses=self.config["retryable_statuses"],
-            user_agent=f"conversiontools-python/{VERSION}",
+            user_agent=self.config["user_agent"],
         )
 
         # Initialize API clients
@@ -153,7 +154,7 @@ class ConversionToolsClient:
         task.wait(wait_options)
 
         # Download result
-        output_path = task.download_to(output)
+        output_path = task.download_to(output, on_progress=self.config["on_download_progress"])
 
         return output_path
 
@@ -245,7 +246,7 @@ class ConversionToolsClient:
         await task.wait_async(wait_options)
 
         # Download result
-        output_path = await task.download_to_async(output)
+        output_path = await task.download_to_async(output, on_progress=self.config["on_download_progress"])
 
         return output_path
 

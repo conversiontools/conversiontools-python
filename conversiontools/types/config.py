@@ -53,6 +53,7 @@ class ConversionToolsConfig(TypedDict, total=False):
     max_polling_interval: float
     polling_backoff: float
     webhook_url: str
+    user_agent: str
     on_upload_progress: Callable[[ProgressEvent], None]
     on_download_progress: Callable[[ProgressEvent], None]
     on_conversion_progress: Callable[[ConversionProgressEvent], None]
