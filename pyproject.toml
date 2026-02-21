@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "conversiontools"
-version = "2.0.0"
+version = "2.0.1"
 description = "Modern Python library to convert files using Conversion Tools API at https://conversiontools.io - supports both sync and async with full type hints"
 readme = "README.md"
 license = "MIT"

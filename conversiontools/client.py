@@ -18,7 +18,7 @@ from .utils.validation import validate_api_token, validate_conversion_input
 from .utils.progress import create_progress_event
 
 # Package version
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 
 class ConversionToolsClient:
